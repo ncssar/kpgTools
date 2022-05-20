@@ -114,6 +114,7 @@ if __name__=="__main__":
     totalLogLines.append('   - channels with the same name should have identical TX/RX/Enc/Dec/Spacing/PTT ID')
     totalLogLines.append('-----------------------------------------')
     channelNameDict={} # dict of lists of dicts
+    thisPartDiscrepancyFlag=False
     keysToCompare=[
             'Transmit Frequency [MHz]'
         ,'Receive Frequency [MHz]'
@@ -144,8 +145,11 @@ if __name__=="__main__":
                             logLines.append('    *** DISCREPANCY: '+key+': '+d[key]+' is different than '+d0[key]+' in Zone '+str(d0['Zone Number'])+' ('+d0['Zone Name']+')  Channel '+str(d0['Channel Number']))
         totalLogLines+=logLines
         if discrepancyFlag:
+            thisPartDiscrepancyFlag=True
             for line in logLines:
                 logging.info(line)
+    if not thisPartDiscrepancyFlag:
+        totalLogLines.append('No discrepancies found for this check.')
 
     # part two: check channels that have all the same TX/RX/Enc/Dec but different name (since same-name is handled in part one)
     totalLogLines.append('-----------------------------------------')
@@ -154,6 +158,7 @@ if __name__=="__main__":
     totalLogLines.append('   - channels with the same TX/RX/Enc values should have identical name/Dec/Spacing/PTT ID')
     totalLogLines.append('-----------------------------------------')
     tredDict={} # dict of lists of dicts; key syntax = <TX>:<RX>:<Enc>:<Dec>
+    thisPartDiscrepancyFlag=False
     keysToCompare=[
             'Channel Name'
         ,'Channel Spacing (Analog) [kHz]'
@@ -186,8 +191,36 @@ if __name__=="__main__":
                             logLines.append('    *** DISCREPANCY: '+key+': '+d[key]+' is different than '+d0[key]+' in Zone '+str(d0['Zone Number'])+' ('+d0['Zone Name']+')  Channel '+str(d0['Channel Number']))
         totalLogLines+=logLines
         if discrepancyFlag:
+            thisPartDiscrepancyFlag=True
             for line in logLines:
                 logging.info(line)
+    if not thisPartDiscrepancyFlag:
+        totalLogLines.append('No discrepancies found for this check.')
+    
+    # part three: all simplex channels should have dec=None or dec=enc
+    totalLogLines.append('-----------------------------------------')
+    totalLogLines.append('INTERNAL CONSISTENCY CHECK')
+    totalLogLines.append('  Part 3: All simplex channels should have dec=None or dec=enc')
+    totalLogLines.append('-----------------------------------------')
+    thisPartDiscrepancyFlag=False
+    for d in kw.getAllChannelDicts():
+        logLines=[]
+        discrepancyFlag=False
+        if d['Transmit Frequency [MHz]']==d['Receive Frequency [MHz]']:
+            enc=d['QT/DQT Encode']
+            dec=d['QT/DQT Decode']
+            if dec!='None' and dec!=enc:
+                discrepancyFlag=True
+                logLines.append('Simplex channel enc/dec check:')
+                logLines.append('  Zone '+str(d['Zone Number'])+' ('+d['Zone Name']+')  Channel '+str(d['Channel Number'])+' ('+d['Channel Name']+')')
+                logLines.append('    *** DISCREPANCY: Enc = '+str(enc)+'  Dec = '+str(dec))
+        totalLogLines+=logLines
+        if discrepancyFlag:
+            thisPartDiscrepancyFlag=True
+            for line in logLines:
+                logging.info(line)
+    if not thisPartDiscrepancyFlag:
+        totalLogLines.append('No discrepancies found for this check.')
 
     logging.info('=========================================')
     logging.info('Detailed log, including discrepancies:')
