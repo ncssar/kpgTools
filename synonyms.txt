@@ -1,0 +1,13 @@
+# synonyms.txt for Nevada County Sheriff's Search and Rescue
+#  modify this file as needed for your own team
+# This file defines legal channel name synonyms for use in kpgCheck.py.
+#  (channel names are already compared case-insensitively in kpgCheck.py,
+#   so "Chan" matches "CHAN" without needing to define them as synonyms here)
+# Use one line per legal synonym set of two or more synonyms.
+# In each line, channel names must be in double quotes, separated by space.
+# EXAMPLE:
+# "MyChannel" "My Channel" "MYCHAN"
+"CDF NEU West" "CDF W Tone 4"
+"NCFire Tone 4" "Nev.CO Fire "
+"NASAR" "VSAR16"
+"SAR SGL" "PCSAR SIGNAL"

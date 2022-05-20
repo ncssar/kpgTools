@@ -58,7 +58,19 @@ class KWFile():
     def getAllChannelDicts(self):
         return self.allChannelDicts
 
-    
+def getSynonyms(name,synonymsList):
+    found=False
+    rval=[name] # default return value: no synonyms, a.k.a. the name itself is the only item in the synonym set
+    for l in synonymsList:
+        if isinstance(l,list) and name in l:
+            if found:
+                logging.error('ERROR during synonym checking: '+name+' appears in more than one synonym set:')
+                logging.error('  '+str(rval))
+                logging.error('  '+str(l))
+            found=True
+            rval=l
+    return rval
+
 if __name__=="__main__":
     logging.info('kpgCheck.py - Kenwood data conversion, validation, and comparison tool')
     logging.info('  kpgCheck.py last modified: '+time.strftime('%Y-%m-%d %H:%M:%S',time.localtime(os.path.getmtime(__file__))))
@@ -66,6 +78,9 @@ if __name__=="__main__":
     logging.info('  File 1: '+sys.argv[1])
     if len(sys.argv)==3:
         logging.info('  File 2: '+sys.argv[2])
+    synonymsFile='synonyms.txt'
+    if os.path.isfile(synonymsFile):
+        logging.info('  Channel name synonyms file: '+synonymsFile)
     logging.info('-----------------------------------------')
     if len(sys.argv)<2 or os.path.splitext(sys.argv[1])[1].lower() not in ['.html','.htm']:
         print("ERROR: must specify input .htm or .html filename.")
@@ -79,7 +94,7 @@ if __name__=="__main__":
         logging.error("ERROR: only KPG-D1N html files are currently supported")
         sys.exit(-1)
     colKey=[
-            ['Zone Number','Zone#']
+         ['Zone Number','Zone#']
         ,['Zone Name','Zone Name']
         ,['Channel Number','Chan#']
         ,['Channel Name','Channel Name']
@@ -104,6 +119,24 @@ if __name__=="__main__":
             csvWriter.writerow(row)
         csvWriter.writerow(["## end"])
     logging.info('Done.')
+
+    # read synonyms file
+    synonymsList=[] # list of lists
+    with open(synonymsFile,'r') as f:
+        synLines=f.readlines()
+    for line in synLines:
+        if not line.startswith('#'):
+            try:
+                parse=line.split('" "')
+                parse=[x.replace('"','') for x in parse]
+                parse=[x.replace('\n','') for x in parse]
+                synonymsList.append(parse)
+            except:
+                logging.error('Error during parse of '+synonymsFile+' while reading line:')
+                logging.error('  '+line)
+                sys.exit(-1)
+    # logging.info('synonymsList='+str(synonymsList))
+
     logging.info('=========================================')
     logging.info(' Summary of discrepancies:')
     logging.info('=========================================')
@@ -116,7 +149,7 @@ if __name__=="__main__":
     channelNameDict={} # dict of lists of dicts
     thisPartDiscrepancyFlag=False
     keysToCompare=[
-            'Transmit Frequency [MHz]'
+         'Transmit Frequency [MHz]'
         ,'Receive Frequency [MHz]'
         ,'QT/DQT Encode'
         ,'QT/DQT Decode'
@@ -155,12 +188,12 @@ if __name__=="__main__":
     totalLogLines.append('-----------------------------------------')
     totalLogLines.append('INTERNAL CONSISTENCY CHECK')
     totalLogLines.append('  Part 2: Report all TX/RX/Enc sets that appear more than once in the html file, and show any discrepancies:')
-    totalLogLines.append('   - channels with the same TX/RX/Enc values should have identical name/Dec/Spacing/PTT ID')
+    totalLogLines.append('   - channels with the same TX/RX/Enc values should have identical name (or synonym)/Dec/Spacing/PTT ID')
     totalLogLines.append('-----------------------------------------')
     tredDict={} # dict of lists of dicts; key syntax = <TX>:<RX>:<Enc>:<Dec>
     thisPartDiscrepancyFlag=False
     keysToCompare=[
-            'Channel Name'
+         'Channel Name'
         ,'Channel Spacing (Analog) [kHz]'
         ,'PTT ID (Analog)']
     simplexAdditionalKeysToCompare=[
@@ -186,9 +219,14 @@ if __name__=="__main__":
                     else:
                         keyList=keysToCompare
                     for key in keyList:
-                        if d[key]!=d0[key]:
-                            discrepancyFlag=True
-                            logLines.append('    *** DISCREPANCY: '+key+': '+d[key]+' is different than '+d0[key]+' in Zone '+str(d0['Zone Number'])+' ('+d0['Zone Name']+')  Channel '+str(d0['Channel Number']))
+                        if str(d[key]).lower()!=str(d0[key]).lower():
+                            # if key=='Channel Name':
+                            #     logLines.append('  chan='+d[key]+'   synonyms='+str(getSynonyms(d0[key],synonymsList)))
+                            if key=='Channel Name' and d[key] in getSynonyms(d0[key],synonymsList):
+                                logLines.append('    ** Channel name '+d[key]+' is different than '+d0[key]+' in Zone '+str(d0['Zone Number'])+' ('+d0['Zone Name']+')  Channel '+str(d0['Channel Number'])+' but they are legal synonyms')
+                            else:
+                                discrepancyFlag=True
+                                logLines.append('    *** DISCREPANCY: '+key+': '+d[key]+' is different than '+d0[key]+' in Zone '+str(d0['Zone Number'])+' ('+d0['Zone Name']+')  Channel '+str(d0['Channel Number']))
         totalLogLines+=logLines
         if discrepancyFlag:
             thisPartDiscrepancyFlag=True
@@ -223,6 +261,7 @@ if __name__=="__main__":
         totalLogLines.append('No discrepancies found for this check.')
 
     logging.info('=========================================')
+    logging.info(' ')
     logging.info('Detailed log, including discrepancies:')
     for line in totalLogLines:
         logging.info(line)
