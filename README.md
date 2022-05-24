@@ -4,7 +4,7 @@ Currently, the only script in this repository is kpgCheck.  More tools may be de
 # Installation
 kpgTools is not currently a full package availble through PyPi.  So, follow these steps to install:
 1. install Python
-2. download and extract the latest zip (the green button on the repo home page)
+2. download and extract the latest zip (the green 'Code' button on the repo home page)
 3. open a terminal and go to the directory that you unzipped to
 4. pip install -r requirements.txt
 5. if running on Windows, install a recent version of WinMerge (2.16.0 or later)
