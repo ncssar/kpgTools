@@ -145,7 +145,8 @@ if __name__=="__main__":
             for d in kw[fileNum].getAllChannelDicts():
                 # sort by a list of keys: https://stackoverflow.com/a/21773891
                 # row=sorted(d.items(),key=lambda pair: [h[0] for h in colKey].index(pair[0]))
-                row=[rowNum]
+                # row=[rowNum]
+                row=[d['Zone Name']+':'+d['Channel Name']] # much more useful for diff than simple row number
                 for h in colKey:
                     row.append(d[h[0]])
                 csvWriter.writerow(row)
@@ -291,6 +292,12 @@ if __name__=="__main__":
         csv2=load_csv(open(chanFileNames[1]),key='id')
         diff=compare(csv1,csv2)
         # logging.info(json.dumps(diff,indent=3))
+        if len(diff['added'])>0 or len(diff['removed'])>0:
+            logging.info('Channel(s) were added or removed.  Only the zone:channel pair names are listed here as a summary; the visual diff tool should be used to see more detail.')
+        for addedDict in diff['added']:
+            logging.info('  Added: '+addedDict['id'])
+        for removedDict in diff['removed']:
+            logging.info('  Removed: '+removedDict['id'])
         for changeDict in diff['changed']:
             d=csv1[changeDict['key']]
             logging.info('Zone '+d['Zone#']+' ('+d['Zone Name']+')  Channel '+d['Chan#']+' ('+d['Channel Name']+') : ')
@@ -303,7 +310,13 @@ if __name__=="__main__":
         winmerge=r'C:\Program Files (x86)\WinMerge\WinMergeU.exe'
         if os.path.isfile(winmerge):
             import subprocess
-            subprocess.Popen([r'C:\Program Files (x86)\WinMerge\WinMergeU.exe',chanFileNames[0],chanFileNames[1]])
+            # Settings/MatchSimilarLines (determined from viewing the exported .ini file) corresponds to
+            #  'Align similar lines' in the settings GUI.  This makes for more readable output, by inserting
+            #  blank lines in the opposite file where lines only exist in one file but not the other.  This is
+            #  probably what tkdiff would do anyway.
+            # (.ini export seems to have a bug, causing all syntax highlighting colors to be solid black when
+            #  read at runtime using /inifile)
+            subprocess.Popen([r'C:\Program Files (x86)\WinMerge\WinMergeU.exe','/cfg','Settings/MatchSimilarLines=1',chanFileNames[0],chanFileNames[1]])
 
         # dl1=kw[0].getAllChannelDicts()
         # dl2=kw[1].getAllChannelDicts()
