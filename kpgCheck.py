@@ -25,6 +25,7 @@ class KWFile():
         self.extension=os.path.splitext(fileName)[1].lower()
         self.soup=None
         self.allChannelDicts=[] # list of dictionaries, one per html channel entry (preserve duplicates)
+        self.optionalFeaturesTables=[] # list of lists, one entry per Optional Features table [name,table]
         if self.extension=='.htm':
             with open(fileName,'r') as html_doc:
                 logging.info('Parsing '+fileName+'...')
@@ -40,10 +41,12 @@ class KWFile():
                         # logging.info('  next element:'+str(i.next_element.name))
                         # logging.info('  next sibling:'+str(i.next_sibling.name))
                         channelDict={}
+                        # logging.info('New Channel Edit header')
                         t1=i.find_next('table') # next table should be 'Channel Edit' table
                         t2=t1.find_next('table') # next table should be 'General' table
                         t3=t2.find_next('table') # next table should be 'Analog' table
                         for t in [t1,t2,t3]:
+                            # logging.info(' next table:')
                             for tr in t.find_all('tr'):
                                 tds=tr.find_all('td')
                                 if len(tds)==2: # skip the first tr which only has th (heading) tags
@@ -53,10 +56,35 @@ class KWFile():
                                     # logging.info('  '+key+' = '+val)
                                     channelDict[key]=val
                         self.allChannelDicts.append(channelDict)
-                logging.info('Imported '+str(len(self.allChannelDicts))+' channel entries.')
+                    # after the channel data, we will be comparing all tables verbatim beginning with Optional Features
+                    #  (we don't want to blindly compare all tables above that, since the number of tables may vary)
+                    if i.name=='h1' and i.string=='Optional Features':
+                        while(i):
+                            i=i.find_next_sibling()
+                            if i and hasattr(i,'name'):
+                                # logging.info('next sibling:'+str(i.name)+':'+str(i.string))
+                                if i.name=='h1':
+                                    mostRecentHeader=i.string
+                                elif i.name=='table':
+                                    # store the table, with a unique table name
+                                    existingTableNames=[x[0] for x in self.optionalFeaturesTables]
+                                    tableName=mostRecentHeader
+                                    tableNum=2
+                                    while tableName in existingTableNames:
+                                        tableName=mostRecentHeader+':Table '+str(tableNum)
+                                        tableNum+=1
+                                    # logging.info('adding entry for table named '+tableName)
+                                    self.optionalFeaturesTables.append([tableName,i])
+                            else:
+                                i=False # end of file; stop iterating
+                logging.info('Imported '+str(len(self.allChannelDicts))+' channel entries and '+str(len(self.optionalFeaturesTables))+' Optional Features tables.')
 
     def getAllChannelDicts(self):
         return self.allChannelDicts
+
+    def getOptionalFeaturesTables(self):
+        return self.optionalFeaturesTables
+
 
 def getSynonyms(name,synonymsList):
     found=False
@@ -135,6 +163,8 @@ if __name__=="__main__":
         if 'KPG-D1N' not in kpg:
             logging.error("ERROR: only KPG-D1N html files are currently supported")
             sys.exit(-1)
+        
+        # generate the channel csv file
         with open(chanFileNames[fileNum],'w',newline='') as csvFile:
             csvWriter=csv.writer(csvFile)
             header=['id']
@@ -152,6 +182,12 @@ if __name__=="__main__":
                 csvWriter.writerow(row)
                 rowNum+=1
             csvWriter.writerow(["## end"])
+        
+        # # generate the Optional Features csv file
+        # with open(chanFileNames[fileNum].replace('.csv','.optionalFeatures.csv'),'w',newline='') as csvFile:
+        #     csvWriter=csv.writer(csvFile)
+        #     for table in kw[fileNum].getOptionalFeaturesDict():
+
         logging.info('Done.')
         logging.info('=========================================')
         logging.info('File '+str(fileNum+1)+': '+fileNames[fileNum])
