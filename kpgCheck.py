@@ -151,10 +151,12 @@ if __name__=="__main__":
     totalLogLines=[]
     kw=[] # list of one or two KWFile objects
     chanFileNames=[]
+    otherFileNames=[]
     for fileNum in range(len(fileNames)):
         srcFileName=fileNames[fileNum]
         [srcBaseName,srcExtension]=os.path.splitext(srcFileName)
         chanFileNames.append(srcBaseName+".csv")
+        otherFileNames.append(srcBaseName+".otherTables.csv")
         logging.info('=========================================')
         logging.info('Processing File '+str(fileNum+1))
         kw.append(KWFile(srcFileName))
@@ -184,9 +186,18 @@ if __name__=="__main__":
             csvWriter.writerow(["## end"])
         
         # # generate the Optional Features csv file
-        # with open(chanFileNames[fileNum].replace('.csv','.optionalFeatures.csv'),'w',newline='') as csvFile:
-        #     csvWriter=csv.writer(csvFile)
-        #     for table in kw[fileNum].getOptionalFeaturesDict():
+        with open(otherFileNames[fileNum],'w',newline='') as csvFile:
+            csvWriter=csv.writer(csvFile)
+            for [tableName,table] in kw[fileNum].getOptionalFeaturesTables():
+                # logging.info('table:'+str(tableName))
+                # logging.info(str(table))
+                csvWriter.writerow(['Table:'+tableName])
+                for tr in table.find_all('tr'):
+                    row=[]
+                    for item in tr.find_all(['th','td']):
+                        row.append(item.string)
+                    csvWriter.writerow(row)
+                csvWriter.writerow([]) # blank line to separate from next table
 
         logging.info('Done.')
         logging.info('=========================================')
@@ -318,8 +329,10 @@ if __name__=="__main__":
     if len(kw)>1:
         logging.info('=========================================')
         logging.info('File 1 vs File 2: comparison of generated .csv files')
-        logging.info(' File 1 .csv: '+chanFileNames[0])
-        logging.info(' File 2 .csv: '+chanFileNames[1])
+        logging.info(' File 1 channel tables .csv: '+chanFileNames[0])
+        logging.info(' File 1 other tables .csv: '+otherFileNames[0])
+        logging.info(' File 2 channel tables .csv: '+chanFileNames[1])
+        logging.info(' File 2 other tables .csv: '+otherFileNames[1])
         logging.info('=========================================')
 
         from csv_diff import load_csv, compare
@@ -341,6 +354,20 @@ if __name__=="__main__":
                 changeVal=changeDict['changes'][changeKey]
                 logging.info('  '+changeKey+' : '+changeVal[0]+' (File 1) vs. '+changeVal[1]+' (File 2)')
 
+        # compare .otherTables - just do a quick-and-dirty diff, and show the winmerge if there are any differences
+        with open(otherFileNames[0]) as o1:
+            o1_lines=o1.readlines()
+        with open(otherFileNames[1]) as o2:
+            o2_lines=o2.readlines()
+        import difflib
+        # r=list(difflib.unified_diff(o1_lines,o2_lines,fromfile=otherFileNames[0],tofile=otherFileNames[1]))
+        r=[line for line in list(difflib.Differ().compare(o1_lines,o2_lines)) if not line.startswith(' ')]
+        # logging.info(str(len(r))+' diff result(s):')
+        if len(r)>0:
+            logging.info('Differences were found in the other tables:')
+            for line in r:
+                logging.info(line.rstrip())
+
         logging.info(' ')
         logging.info('Attempting to launch WinMerge on the generated .csv files...')
         winmerge=r'C:\Program Files (x86)\WinMerge\WinMergeU.exe'
@@ -353,6 +380,8 @@ if __name__=="__main__":
             # (.ini export seems to have a bug, causing all syntax highlighting colors to be solid black when
             #  read at runtime using /inifile)
             subprocess.Popen([r'C:\Program Files (x86)\WinMerge\WinMergeU.exe','/cfg','Settings/MatchSimilarLines=1',chanFileNames[0],chanFileNames[1]])
+            subprocess.Popen([r'C:\Program Files (x86)\WinMerge\WinMergeU.exe','/cfg','Settings/MatchSimilarLines=1',otherFileNames[0],otherFileNames[1]])
+
 
         # dl1=kw[0].getAllChannelDicts()
         # dl2=kw[1].getAllChannelDicts()
